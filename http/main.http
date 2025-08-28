@@ -1,0 +1,154 @@
+### Single request
+POST https://api.deepseek.com/chat/completions HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
+
+{
+  "messages": [
+    {
+      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问",
+      "role": "system"
+    },
+    {
+      "content": "你好，你是谁？",
+      "role": "user"
+    }
+  ],
+  "model": "deepseek-chat",
+  "stream": false,
+  "temperature": 0
+}
+
+### Regular conversation 
+POST https://api.deepseek.com/chat/completions HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
+
+{
+  "messages": [
+    {
+      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问，公司的主要业务就是做量化交易",
+      "role": "system"
+    },
+    {
+      "content": "你好，你是谁？",
+      "role": "user"
+    },
+    {
+      "content": "你好！我是智能客服Alice，很高兴为你服务。我是一个AI助手，可以帮助解答问题、提供信息或协助处理各种事务。有什么我可以帮你的吗？",
+      "role": "assistant"
+    },
+    {
+      "content": "我想咨询下你们公司的业务",
+      "role": "user"
+    }
+  ],
+  "model": "deepseek-chat",
+  "stream": false,
+  "temperature": 0
+}
+### Function calling conversation
+POST https://api.deepseek.com/chat/completions HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
+
+{
+  "messages": [
+    {
+      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问",
+      "role": "system"
+    },
+    {
+      "content": "你好，查一下北京的天气",
+      "role": "user"
+    }
+  ],
+  "model": "deepseek-chat",
+  "tools": [
+    {
+      "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get weather of a location, the user should supply a location first.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA"
+                    }
+                },
+                "required": ["location"]
+            }
+        }
+    }
+  ],
+  "stream": false,
+  "temperature": 0
+}
+
+### Function calling conversation with tool call
+POST https://api.deepseek.com/chat/completions HTTP/1.1
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
+
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问"
+    },
+    {
+      "role": "user",
+      "content": "你好，查一下北京的天气"
+    },
+    {
+      "role": "assistant",
+      "content": "我来帮您查询北京的天气情况。",
+      "tool_calls": [
+        {
+          "index": 0,
+          "id": "call_0_7261dfb9-46cb-4843-9069-b45662c4fe41",
+          "type": "function",
+          "function": {
+            "name": "get_weather",
+            "arguments": "{\"location\": \"北京\"}"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_0_7261dfb9-46cb-4843-9069-b45662c4fe41",
+      "content": "晴天，29°C"
+    }
+  ],
+  "model": "deepseek-chat",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get weather of a location, the user should supply a location first.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "The city and state, e.g. San Francisco, CA"
+            }
+          },
+          "required": [
+            "location"
+          ]
+        }
+      }
+    }
+  ],
+  "stream": false,
+  "temperature": 0
+}

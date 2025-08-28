@@ -1,0 +1,53 @@
+*.env
+*.log
+
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+## python uv
+uv.lock
+.python-version
+
+
+# Java
+.idea/
+.vscode/
+.classpath
+.project
+.settings/
+.metadata
+.factorypath
+.settings/
+
+# Go
+bin/
+pkg/
+*.exe
+*.test
+*.out
+go.sum
+go.work
+go.work.sum
+vendor/
+coverage.out
+# GoLand
+.idea/
+# Go modules
+.gomodcache/
+# Go build cache
+.cache/
+# Go race detector files
+*.race
+
+# nodejs
+node_modules
+.DS_Store
+package-lock.json
+
+# github
+.github
