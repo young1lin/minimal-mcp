@@ -16,11 +16,11 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 {
   "messages": [
     {
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问",
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions.",
       "role": "system"
     },
     {
-      "content": "你好，你是谁？",
+      "content": "Hello, who are you?",
       "role": "user"
     }
   ],
@@ -30,48 +30,35 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 }
 ```
 
-响应
-```http
-HTTP/1.1 200 OK
-Date: Wed, 06 Aug 2025 08:21:59 GMT
-Content-Type: application/json
-Transfer-Encoding: chunked
-Connection: close
-vary: origin, access-control-request-method, access-control-request-headers
-access-control-allow-credentials: true
-x-ds-trace-id: 4f241ebb167c3c01b3a97ed15dccc06a
-Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-X-Content-Type-Options: nosniff
-Server: CW
-Content-Encoding: gzip
-
+response body
+```json
 {
-  "id": "379e029d-6fe0-4c17-8b1b-a834033f810e",
+  "id": "e479b679-84d4-48c1-bf6f-ad7f56c87682",
   "object": "chat.completion",
-  "created": 1754468519,
+  "created": 1756429739,
   "model": "deepseek-chat",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "你好！我是智能客服Alice，很高兴为你服务。我是一个AI助手，可以帮助解答问题、提供信息或协助处理各种事务。有什么我可以帮你的吗？"
+        "content": "Hello! I'm Alice, your intelligent customer service agent. How can I assist you today?"
       },
       "logprobs": null,
       "finish_reason": "stop"
     }
   ],
   "usage": {
-    "prompt_tokens": 21,
-    "completion_tokens": 33,
-    "total_tokens": 54,
+    "prompt_tokens": 31,
+    "completion_tokens": 19,
+    "total_tokens": 50,
     "prompt_tokens_details": {
       "cached_tokens": 0
     },
     "prompt_cache_hit_tokens": 0,
-    "prompt_cache_miss_tokens": 21
+    "prompt_cache_miss_tokens": 31
   },
-  "system_fingerprint": "fp_8802369eaa_prod0623_fp8_kvcache"
+  "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
 }
 ```
 
@@ -86,19 +73,19 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 {
   "messages": [
     {
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问，公司的主要业务就是做量化交易",
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions. The company's main business is quantitative trading.",
       "role": "system"
     },
     {
-      "content": "你好，你是谁？",
+      "content": "Hello, who are you?",
       "role": "user"
     },
     {
-      "content": "你好！我是智能客服Alice，很高兴为你服务。我是一个AI助手，可以帮助解答问题、提供信息或协助处理各种事务。有什么我可以帮你的吗？",
+      "content": "Hello! I'm Alice, your intelligent customer service agent. How can I assist you today?",
       "role": "assistant"
     },
     {
-      "content": "我想咨询下你们公司的业务",
+      "content": "I would like to inquire about your company's business.",
       "role": "user"
     }
   ],
@@ -107,35 +94,35 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
   "temperature": 0
 }
 ```
-响应
-```http
+response body
+```json
 {
-  "id": "bb4143e9-0411-4c57-bb8f-a6c6723eafc1",
+  "id": "f21a4cd8-baad-449c-a91a-8ac38a674715",
   "object": "chat.completion",
-  "created": 1754469182,
+  "created": 1756429876,
   "model": "deepseek-chat",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "你好！我们公司专注于量化交易领域，主要业务包括：  \n\n1. **量化策略开发**——基于数学、统计学和算法模型，设计自动化交易策略。  \n2. **高频交易（HFT）**——利用超低延迟技术进行毫秒级市场套利。  \n3. **资产管理**——通过量化模型管理基金或客户投资组合，优化风险收益比。  \n4. **数据与技术服务**——提供金融数据清洗、因子挖掘、回测平台等支持。  \n\n如果你对某个方向感兴趣，或想了解具体案例/合作方式，可以告诉我，我会进一步解答！ 😊"
+        "content": "Of course! Our company specializes in quantitative trading, which involves using mathematical models, algorithms, and data analysis to make trading decisions in financial markets. We leverage technology and data to identify patterns, manage risk, and execute trades efficiently. \n\nIs there a specific aspect of quantitative trading you'd like to learn more about?"
       },
       "logprobs": null,
       "finish_reason": "stop"
     }
   ],
   "usage": {
-    "prompt_tokens": 71,
-    "completion_tokens": 130,
-    "total_tokens": 201,
+    "prompt_tokens": 74,
+    "completion_tokens": 63,
+    "total_tokens": 137,
     "prompt_tokens_details": {
       "cached_tokens": 0
     },
     "prompt_cache_hit_tokens": 0,
-    "prompt_cache_miss_tokens": 71
+    "prompt_cache_miss_tokens": 74
   },
-  "system_fingerprint": "fp_8802369eaa_prod0623_fp8_kvcache"
+  "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
 }
 ```
 
@@ -143,7 +130,6 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 
 请求
 ```http
-
 POST https://api.deepseek.com/chat/completions HTTP/1.1
 Content-Type: application/json
 Accept: application/json
@@ -185,40 +171,27 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 }
 ```
 
-响应
-```http
-HTTP/1.1 200 OK
-Date: Tue, 26 Aug 2025 16:41:47 GMT
-Content-Type: application/json
-Transfer-Encoding: chunked
-Connection: close
-vary: origin, access-control-request-method, access-control-request-headers
-access-control-allow-credentials: true
-x-ds-trace-id: dd0e40b7e32ea960c5f6eedace6da45f
-Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-X-Content-Type-Options: nosniff
-Server: CW
-Content-Encoding: gzip
-
+response body
+```json
 {
-  "id": "3ce17afc-bd0d-4ba8-b6b2-bc6aeb893439",
+  "id": "2e85bf30-d509-4ee6-bc18-b65d1b8e02df",
   "object": "chat.completion",
-  "created": 1756226507,
+  "created": 1756430135,
   "model": "deepseek-chat",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "我来帮您查询北京的天气情况。",
+        "content": "I'll check the weather in Hangzhou for you right away.",
         "tool_calls": [
           {
             "index": 0,
-            "id": "call_0_6d23fa67-1011-44c6-9c49-71ada62b2342",
+            "id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
             "type": "function",
             "function": {
               "name": "get_weather",
-              "arguments": "{\"location\": \"北京\"}"
+              "arguments": "{\"location\": \"hangzhou\"}"
             }
           }
         ]
@@ -228,14 +201,14 @@ Content-Encoding: gzip
     }
   ],
   "usage": {
-    "prompt_tokens": 191,
-    "completion_tokens": 22,
-    "total_tokens": 213,
+    "prompt_tokens": 212,
+    "completion_tokens": 28,
+    "total_tokens": 240,
     "prompt_tokens_details": {
-      "cached_tokens": 0
+      "cached_tokens": 192
     },
-    "prompt_cache_hit_tokens": 0,
-    "prompt_cache_miss_tokens": 191
+    "prompt_cache_hit_tokens": 192,
+    "prompt_cache_miss_tokens": 20
   },
   "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
 }
@@ -255,31 +228,31 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
   "messages": [
     {
       "role": "system",
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问"
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions."
     },
     {
       "role": "user",
-      "content": "你好，查一下北京的天气"
+      "content": "Hello, please check the weather in Beijing."
     },
     {
       "role": "assistant",
-      "content": "我来帮您查询北京的天气情况。",
+      "content": "I'll check the weather in Hangzhou for you right away.",
       "tool_calls": [
         {
           "index": 0,
-          "id": "call_0_7261dfb9-46cb-4843-9069-b45662c4fe41",
+          "id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
           "type": "function",
           "function": {
             "name": "get_weather",
-            "arguments": "{\"location\": \"北京\"}"
+            "arguments": "{\"location\": \"hangzhou\"}"
           }
         }
       ]
     },
     {
       "role": "tool",
-      "tool_call_id": "call_0_7261dfb9-46cb-4843-9069-b45662c4fe41",
-      "content": "晴天，29°C"
+      "tool_call_id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
+      "content": "Sunny, 29°C"
     }
   ],
   "model": "deepseek-chat",
@@ -288,13 +261,13 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
       "type": "function",
       "function": {
         "name": "get_weather",
-        "description": "Get weather of a location, the user should supply a location first.",
+        "description": "Get weather information for a location.",
         "parameters": {
           "type": "object",
           "properties": {
             "location": {
               "type": "string",
-              "description": "The city and state, e.g. San Francisco, CA"
+              "description": "The name of the city to get weather for. Only support low case location name, like beijing, shanghai, hangzhou, newyork"
             }
           },
           "required": [
@@ -309,47 +282,34 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 }
 ```
 
-response
+response body
 
-```http
-HTTP/1.1 200 OK
-Date: Tue, 26 Aug 2025 16:51:41 GMT
-Content-Type: application/json
-Transfer-Encoding: chunked
-Connection: close
-vary: origin, access-control-request-method, access-control-request-headers
-access-control-allow-credentials: true
-x-ds-trace-id: 614cf41c1a9e574593f47bd1a52981e4
-Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
-X-Content-Type-Options: nosniff
-Server: CW
-Content-Encoding: gzip
-
+```json
 {
-  "id": "22448b25-46d7-4e24-8dce-42de932bdf93",
+  "id": "2ef2e44e-8540-4798-8530-77b63209e1a9",
   "object": "chat.completion",
-  "created": 1756227101,
+  "created": 1756430434,
   "model": "deepseek-chat",
   "choices": [
     {
       "index": 0,
       "message": {
         "role": "assistant",
-        "content": "根据查询结果，北京目前的天气情况是：\n- 天气状况：晴天\n- 温度：29°C\n\n今天北京的天气很不错呢，是个晴朗的好天气！"
+        "content": "The weather in Hangzhou is currently sunny with a temperature of 29°C. It's a beautiful day there! Is there anything else you'd like to know about the weather or any other assistance I can provide?"
       },
       "logprobs": null,
       "finish_reason": "stop"
     }
   ],
   "usage": {
-    "prompt_tokens": 221,
-    "completion_tokens": 36,
-    "total_tokens": 257,
+    "prompt_tokens": 238,
+    "completion_tokens": 44,
+    "total_tokens": 282,
     "prompt_tokens_details": {
-      "cached_tokens": 192
+      "cached_tokens": 0
     },
-    "prompt_cache_hit_tokens": 192,
-    "prompt_cache_miss_tokens": 29
+    "prompt_cache_hit_tokens": 0,
+    "prompt_cache_miss_tokens": 238
   },
   "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
 }

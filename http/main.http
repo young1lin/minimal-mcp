@@ -7,11 +7,11 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 {
   "messages": [
     {
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问",
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions.",
       "role": "system"
     },
     {
-      "content": "你好，你是谁？",
+      "content": "Hello, who are you?",
       "role": "user"
     }
   ],
@@ -29,19 +29,19 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 {
   "messages": [
     {
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问，公司的主要业务就是做量化交易",
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions. The company's main business is quantitative trading.",
       "role": "system"
     },
     {
-      "content": "你好，你是谁？",
+      "content": "Hello, who are you?",
       "role": "user"
     },
     {
-      "content": "你好！我是智能客服Alice，很高兴为你服务。我是一个AI助手，可以帮助解答问题、提供信息或协助处理各种事务。有什么我可以帮你的吗？",
+      "content": "Hello! I'm Alice, your intelligent customer service agent. How can I assist you today?",
       "role": "assistant"
     },
     {
-      "content": "我想咨询下你们公司的业务",
+      "content": "I would like to inquire about your company's business.",
       "role": "user"
     }
   ],
@@ -58,11 +58,11 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 {
   "messages": [
     {
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问",
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions.",
       "role": "system"
     },
     {
-      "content": "你好，查一下北京的天气",
+      "content": "Hello, please check the weather in Hangzhou",
       "role": "user"
     }
   ],
@@ -72,13 +72,13 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
       "type": "function",
         "function": {
             "name": "get_weather",
-            "description": "Get weather of a location, the user should supply a location first.",
+            "description": "Get weather information for a location.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "location": {
                         "type": "string",
-                        "description": "The city and state, e.g. San Francisco, CA"
+                        "description": "The name of the city to get weather for. Only support low case location name, like beijing, shanghai, hangzhou, newyork"
                     }
                 },
                 "required": ["location"]
@@ -100,31 +100,31 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
   "messages": [
     {
       "role": "system",
-      "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问"
+      "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions."
     },
     {
       "role": "user",
-      "content": "你好，查一下北京的天气"
+      "content": "Hello, please check the weather in Beijing."
     },
     {
       "role": "assistant",
-      "content": "我来帮您查询北京的天气情况。",
+      "content": "I'll check the weather in Hangzhou for you right away.",
       "tool_calls": [
         {
           "index": 0,
-          "id": "call_0_7261dfb9-46cb-4843-9069-b45662c4fe41",
+          "id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
           "type": "function",
           "function": {
             "name": "get_weather",
-            "arguments": "{\"location\": \"北京\"}"
+            "arguments": "{\"location\": \"hangzhou\"}"
           }
         }
       ]
     },
     {
       "role": "tool",
-      "tool_call_id": "call_0_7261dfb9-46cb-4843-9069-b45662c4fe41",
-      "content": "晴天，29°C"
+      "tool_call_id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
+      "content": "Sunny, 29°C"
     }
   ],
   "model": "deepseek-chat",
@@ -133,13 +133,13 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
       "type": "function",
       "function": {
         "name": "get_weather",
-        "description": "Get weather of a location, the user should supply a location first.",
+        "description": "Get weather information for a location.",
         "parameters": {
           "type": "object",
           "properties": {
             "location": {
               "type": "string",
-              "description": "The city and state, e.g. San Francisco, CA"
+              "description": "The name of the city to get weather for. Only support low case location name, like beijing, shanghai, hangzhou, newyork"
             }
           },
           "required": [
