@@ -1,0 +1,17 @@
+{
+    "mcpServers": {
+        "fake-weather-server": {
+          "type": "stdio",
+          "command": "uv",
+          "args": ["run", "..\\mcp_server.py", "--arg1", "test1", "--arg2", "test43333"],
+          "env": {
+            "FAKE_CLINE_WEATHER_API_KEY": "test-key-77777777777777777777777"
+          }
+        },
+        "chrome-devtools": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["chrome-devtools-mcp@latest"]
+        }
+    }
+  }

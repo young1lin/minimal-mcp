@@ -111,28 +111,33 @@ class InitializeJSONRPCRequest(JSONRPCRequest):
 class InitializeJSONRPCResult(JSONRPCResult):
     """Initialize JSON RPC Result"""
 
-    def __init__(self, id: str | int | None, is_error: bool = False, **data):
-        if is_error:
-            result = None
-            error = JSONRPCError(code=-1, message="Initialize error")
+    def __init__(self, id: str | int | None = None, is_error: bool = False, **data):
+        # 如果 result 已经在 data 中（从 JSON 解析），直接使用父类初始化
+        if "result" in data or "error" in data:
+            super().__init__(id=id, **data)
         else:
-            capabilities = Capabilities(
-                tools={"listChanged": True},
-                logging={"listChanged": False},
-                prompts={"listChanged": False},
-                resources={"subscribe": False, "listChanged": False},
-                completions={"listChanged": False},
-                experimental={"listChanged": False},
-            )
-            result = {
-                "protocolVersion": "2024-11-05",
-                "capabilities": capabilities.model_dump(exclude_none=True),
-                "serverInfo": ServerInfo().model_dump(exclude_none=True),
-                "instructions": "Fake-Weather MCP Server",
-            }
-            error = None
+            # 否则使用自定义逻辑创建
+            if is_error:
+                result = None
+                error = JSONRPCError(code=-1, message="Initialize error")
+            else:
+                capabilities = Capabilities(
+                    tools={"listChanged": True},
+                    logging={"listChanged": False},
+                    prompts={"listChanged": False},
+                    resources={"subscribe": False, "listChanged": False},
+                    completions={"listChanged": False},
+                    experimental={"listChanged": False},
+                )
+                result = {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": capabilities.model_dump(exclude_none=True),
+                    "serverInfo": ServerInfo().model_dump(exclude_none=True),
+                    "instructions": "Fake-Weather MCP Server",
+                }
+                error = None
 
-        super().__init__(id=id, result=result, error=error, **data)
+            super().__init__(id=id, result=result, error=error, **data)
 
 
 class ListToolsJSONRPCRequest(JSONRPCRequest):
@@ -199,22 +204,31 @@ class ListToolsJSONRPCResult(JSONRPCResult):
 
     def __init__(
         self,
-        id: str | int | None,
-        tools: list[ToolDefinition],
+        id: str | int | None = None,
+        tools: list[ToolDefinition] | None = None,
         nextCursor: str | None = None,
         is_error: bool = False,
         **data
     ):
-        if is_error:
-            error = JSONRPCError(code=-1, message="Failed to list tools")
-            result = None
+        # 如果 result 已经在 data 中（从 JSON 解析），直接使用父类初始化
+        if "result" in data or "error" in data:
+            super().__init__(id=id, **data)
         else:
-            error = None
-            result = {"tools": [tool.model_dump(exclude_none=True) for tool in tools]}
-            if nextCursor:
-                result["nextCursor"] = nextCursor
+            # 否则使用自定义逻辑创建
+            if is_error:
+                error = JSONRPCError(code=-1, message="Failed to list tools")
+                result = None
+            else:
+                error = None
+                if tools is None:
+                    tools = []
+                result = {
+                    "tools": [tool.model_dump(exclude_none=True) for tool in tools]
+                }
+                if nextCursor:
+                    result["nextCursor"] = nextCursor
 
-        super().__init__(id=id, result=result, error=error, **data)
+            super().__init__(id=id, result=result, error=error, **data)
 
 
 class ToolContent(BaseModel):
@@ -261,24 +275,29 @@ class CallToolJSONRPCResult(JSONRPCResult):
 
     def __init__(
         self,
-        id: str | int | None,
+        id: str | int | None = None,
         content: list[ToolContent] | None = None,
         is_error: bool = False,
         error_message: str | None = None,
         **data
     ):
-        if is_error:
-            error = JSONRPCError(
-                code=-1, message=error_message or "Tool execution failed"
-            )
-            result = None
+        # 如果 result 已经在 data 中（从 JSON 解析），直接使用父类初始化
+        if "result" in data or "error" in data:
+            super().__init__(id=id, **data)
         else:
-            error = None
-            result = {
-                "content": [
-                    item.model_dump(exclude_none=True) for item in (content or [])
-                ],
-                "isError": False,
-            }
+            # 否则使用自定义逻辑创建
+            if is_error:
+                error = JSONRPCError(
+                    code=-1, message=error_message or "Tool execution failed"
+                )
+                result = None
+            else:
+                error = None
+                result = {
+                    "content": [
+                        item.model_dump(exclude_none=True) for item in (content or [])
+                    ],
+                    "isError": False,
+                }
 
-        super().__init__(id=id, result=result, error=error, **data)
+            super().__init__(id=id, result=result, error=error, **data)

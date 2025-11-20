@@ -21,6 +21,14 @@ import inspect
 # from collections.abc import Callable
 from typing import Callable
 
+# 在 Windows 上强制使用 UTF-8 编码
+if sys.platform == "win32":
+    # 重新配置 stdout 和 stdin 为 UTF-8
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8", errors="replace")
+
 
 api_key = os.getenv("FAKE_CLINE_WEATHER_API_KEY", "test-key-123")
 
@@ -266,9 +274,9 @@ class ServerSession:
         elif location.lower() == "hangzhou":
             result = "The weather of Hangzhou is rainy, 29°C, 80% humidity, wind 10km/h"
         elif location.lower() == "nyc":
-            result = """The weather of NYC is 
-                        67°F°C 
-                        Precipitation: 0% 
+            result = """The weather of NYC is
+                        67°F°C
+                        Precipitation: 0%
                         Humidity: 68%
                         Wind: 6 mph
                         """
@@ -299,13 +307,20 @@ class McpServer:
         # Convert Tool objects to ToolDefinition objects
         tool_definitions: list[ToolDefinition] = []
         for tool_obj in tool_objects:
+            # Parse docstring to get parameter descriptions
+            param_descriptions = self._parse_docstring_params(tool_obj.func)
+
             # Convert function annotations to ToolParameterProperty objects
             properties = {}
             for param_name, param_type in tool_obj.arguments.items():
                 if param_name != "return":  # Skip return annotation
+                    # Use description from docstring if available, otherwise use default
+                    description = param_descriptions.get(
+                        param_name, f"Parameter {param_name}"
+                    )
                     properties[param_name] = ToolParameterProperty(
                         type=self._get_type_string(param_type),
-                        description=f"Parameter {param_name}",
+                        description=description,
                     )
 
             input_schema = ToolInputSchema(
@@ -328,6 +343,78 @@ class McpServer:
         self.session = session
 
         logger.info(f"McpServer initialized with tools: {[t.name for t in self.tools]}")
+
+    def _parse_docstring_params(self, func: callable) -> dict[str, str]:
+        """
+        Parse parameter descriptions from function docstring.
+        Supports Google-style docstrings with Args section.
+
+        Returns:
+            dict mapping parameter names to their descriptions
+        """
+        docstring = inspect.getdoc(func)
+        if not docstring:
+            return {}
+
+        param_descriptions = {}
+        lines = docstring.split("\n")
+        in_args_section = False
+
+        for i, original_line in enumerate(lines):
+            line = original_line.strip()
+
+            # Check if we're entering Args section
+            if line.lower().startswith("args:"):
+                in_args_section = True
+                continue
+
+            # Check if we're leaving Args section (next section starts)
+            if in_args_section:
+                # Check if this is a new section (not indented and contains ':')
+                if (
+                    line
+                    and not original_line.startswith(" ")
+                    and not original_line.startswith("\t")
+                ):
+                    if ":" in line:
+                        # This might be a new section (like Returns:)
+                        if any(
+                            keyword in line.lower()
+                            for keyword in [
+                                "returns:",
+                                "yields:",
+                                "raises:",
+                                "note:",
+                                "example:",
+                                "see also:",
+                            ]
+                        ):
+                            break
+
+                # Parse parameter line
+                # Format: param_name (type, optional/required): description
+                # or: param_name: description
+                # Parameter lines typically have ':' and start with a parameter name
+                if ":" in line:
+                    # Extract parameter name and description
+                    parts = line.split(":", 1)
+                    if len(parts) == 2:
+                        param_part = parts[0].strip()
+                        description = parts[1].strip()
+
+                        # Extract parameter name (handle formats like "param_name (type, required)")
+                        if "(" in param_part:
+                            param_name = param_part.split("(")[0].strip()
+                        else:
+                            param_name = param_part.strip()
+
+                        # Only add if it looks like a parameter (starts with letter or underscore)
+                        if param_name and (
+                            param_name[0].isalpha() or param_name[0] == "_"
+                        ):
+                            param_descriptions[param_name] = description
+
+        return param_descriptions
 
     def _get_type_string(self, param_type) -> str:
         """Convert Python type annotation to JSON schema type string"""
