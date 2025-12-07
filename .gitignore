@@ -21,6 +21,8 @@ wheels/
 .metadata
 .factorypath
 .settings/
+*.log
+*.log.*
 
 # Go
 bin/
