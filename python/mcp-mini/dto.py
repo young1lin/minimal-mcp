@@ -155,10 +155,13 @@ class ListToolsJSONRPCRequest(JSONRPCRequest):
 class ToolParameterProperty(BaseModel):
     """Tool parameter property definition"""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
-    type: str
-    description: str
+    type: str | None = None
+    description: str | None = None
+    anyOf: list[dict[str, Any]] | None = None
+    oneOf: list[dict[str, Any]] | None = None
+    allOf: list[dict[str, Any]] | None = None
 
 
 class ToolInputSchema(BaseModel):

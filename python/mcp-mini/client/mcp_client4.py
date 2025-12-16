@@ -386,8 +386,9 @@ def build_mcp_servers_section(mcp_clients: dict[str, MCPClient]) -> str:
                     required = tool.inputSchema.required or []
                     for param_name, param_prop in tool.inputSchema.properties.items():
                         required_mark = "(必需)" if param_name in required else "(可选)"
+                        description = param_prop.description or "无描述"
                         sections.append(
-                            f"    - {param_name}：{param_prop.description} {required_mark}"
+                            f"    - {param_name}：{description} {required_mark}"
                         )
                 else:
                     sections.append("  输入参数：无")
