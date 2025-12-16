@@ -1,10 +1,52 @@
+# 前言
+
+在使用 Cline、Claude Desktop、Cursor 这些应用的时候，只需要配置一个 `mcp.json` 文件，就可以让大模型使用各种工具，这种是否很神奇？例如下面的配置，我就能让 Cursor 或者 Cline 操作 Chrome 浏览器进行各种操作，例如访问某个网站，点击某个按钮。这一切，都很简单，如果你知道大模型本质是什么，可以跳过下面的 LLM 的内容，直接看
+
+```json
+{
+    "mcpServers": {
+        "chrome-devtools": {
+          "command": "npx",
+          "args": ["chrome-devtools-mcp@latest"]
+        }
+    }
+}
+```
+
+下面的操作是不是看起来很神秘，只需要输入文字，就能打开网页，点击登录，输入账号。
+
+![演示视频](https://github.com/user-attachments/assets/032b4a63-b8ca-4bed-b70b-2d8186d71506)
+
+其实这个做了这几件事情，在 D-Cline 的进程中，
+1. 使用 npx 命令启动一个了一个子进程，这个进行接受 stdio 输入一段内容；
+2. 将 MCP TOOL 的提示词填充进 D-Cline 的 system prompt 中；
+3. 用户输入然后 D-Cline 调用大模型，返回结构化的 XML 文本；
+4. Buffer 回复内容，解析 XML 调用相关的 Tool；
+5. 如果是 MCP，则会调用对应的 MCP 子进程的 Tool；
+6. 调用结果输出 stdio，D-Cline 收到输出的内容决定是否进行下一步操作；
+7. 如此循环，直到调用 FinalAnswer Tool 返回最终答案。
+
+当然，我这里为了避免无限循环调用工具，加了硬编码的固定最大对话轮数限制。
+
+下面会有详细的代码展示，一步步展示，如何实现所谓的能调用 MCP 的 LLM Agent。
+
+# 准备
+
+最好准备一个 DeepSeek 或者 Kimi 或者一切能自己访问到的大模型网站，并且写好 API-KEY，接下来，我会一步步拆解所谓的 MCP，所谓的大模型的 Type-C。
+
+[DeepSeek](https://platform.deepseek.com/)
+[Kimi](https://platform.moonshot.cn/console/account)
+
+不推荐智谱，不兼容 OpenAI 的 API。
+
 # LLM
 
 简单介绍一下 LLM（Large Language Model），就是你输入一段文字，机器猜你下一个词是什么，就这么简单。
 
-详细了解，看我上一篇文章（TODO 放链接），大模型并没有“记住”你的事情，看下面演示。
+详细了解，看我[文章](https://young1lin.github.io/posts/llm-1/)，大模型并没有“记住”你的事情，看下面演示。
 
 不管是 RAG、Agent、MultiAgent、ReAct、Prompt Engineering、Context Engineering 等等，它们做的事情都是一样的，“掩盖” LLM 的不足。就是有上下文窗口限制，并且输入只能图片、文字，输出只能是文字。
+
 管你吹得什么天花乱坠，它们之间的本质，就是想办法把获取到的信息（文字、图片）传入到 LLM 中，然后进行推理，输出文字，这个文字可以是结构化的文字，也可以就单纯是个文本。
 
 我举个简单的例子。我想让大模型返回结构化的内容，按照我的提示词来返回，我需要写类似下面一段提示词:
@@ -141,10 +183,14 @@
       - wind：风速
 ```
 
+输入是
+
+```json
 {
     "content": "我想查看杭州的天气",
     "role": "user"
 }
+```
 
 输出
 ```json
@@ -192,47 +238,26 @@
 请求
 
 ```http
-
 POST https://api.deepseek.com/chat/completions HTTP/1.1
-
 Content-Type: application/json
-
 Accept: application/json
-
 Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 
-
-
 {
-
   "messages": [
-
     {
-
       "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions.",
-
-      "role": "system"
-
+      "role": "system",
     },
-
     {
-
       "content": "Hello, who are you?",
-
       "role": "user"
-
     }
-
   ],
-
   "model": "deepseek-chat",
-
   "stream": false,
-
   "temperature": 0
-
 }
-
 ```
 
 
@@ -242,187 +267,101 @@ response body
 ```json
 
 {
-
   "id": "e479b679-84d4-48c1-bf6f-ad7f56c87682",
-
   "object": "chat.completion",
-
   "created": 1756429739,
-
   "model": "deepseek-chat",
-
   "choices": [
-
     {
-
       "index": 0,
-
       "message": {
-
         "role": "assistant",
-
         "content": "Hello! I'm Alice, your intelligent customer service agent. How can I assist you today?"
-
       },
-
       "logprobs": null,
-
       "finish_reason": "stop"
-
     }
-
   ],
-
   "usage": {
-
     "prompt_tokens": 31,
-
     "completion_tokens": 19,
-
     "total_tokens": 50,
-
     "prompt_tokens_details": {
-
       "cached_tokens": 0
-
     },
-
     "prompt_cache_hit_tokens": 0,
-
     "prompt_cache_miss_tokens": 31
-
   },
-
   "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
-
 }
 
 ```
-
-
 
 ## 多轮对话
 
-
+以 HTTP 请求演示
 
 ```http
-
 POST https://api.deepseek.com/chat/completions HTTP/1.1
-
 Content-Type: application/json
-
 Accept: application/json
-
 Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 
-
-
 {
-
   "messages": [
-
     {
-
       "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions. The company's main business is quantitative trading.",
-
       "role": "system"
-
     },
-
     {
-
       "content": "Hello, who are you?",
-
       "role": "user"
-
     },
-
     {
-
       "content": "Hello! I'm Alice, your intelligent customer service agent. How can I assist you today?",
-
       "role": "assistant"
-
     },
-
     {
-
       "content": "I would like to inquire about your company's business.",
-
       "role": "user"
-
     }
-
   ],
-
   "model": "deepseek-chat",
-
   "stream": false,
-
   "temperature": 0
-
 }
-
 ```
 
 response body
 
 ```json
-
 {
-
-  "id": "f21a4cd8-baad-449c-a91a-8ac38a674715",
-
+  "id": "f21a4cd8-baad-449c-a91a-8ac38a674715",
   "object": "chat.completion",
-
   "created": 1756429876,
-
   "model": "deepseek-chat",
-
   "choices": [
-
     {
-
       "index": 0,
-
       "message": {
-
         "role": "assistant",
-
         "content": "Of course! Our company specializes in quantitative trading, which involves using mathematical models, algorithms, and data analysis to make trading decisions in financial markets. We leverage technology and data to identify patterns, manage risk, and execute trades efficiently. \n\nIs there a specific aspect of quantitative trading you'd like to learn more about?"
-
       },
-
       "logprobs": null,
-
       "finish_reason": "stop"
-
     }
-
   ],
-
   "usage": {
-
     "prompt_tokens": 74,
-
     "completion_tokens": 63,
-
     "total_tokens": 137,
-
     "prompt_tokens_details": {
-
       "cached_tokens": 0
-
     },
-
     "prompt_cache_hit_tokens": 0,
-
     "prompt_cache_miss_tokens": 74
-
   },
-
   "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
-
 }
 
 ```
@@ -436,85 +375,45 @@ response body
 请求
 
 ```http
-
 POST https://api.deepseek.com/chat/completions HTTP/1.1
-
 Content-Type: application/json
-
 Accept: application/json
-
 Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 
-
-
 {
-
   "messages": [
-
     {
-
       "content": "你是一个智能客服 Alice，你的主要作用就是帮用户解答疑问",
-
       "role": "system"
-
     },
-
     {
-
       "content": "你好，查一下北京的天气",
-
       "role": "user"
-
     }
-
   ],
-
   "model": "deepseek-chat",
-
   "tools": [
-
     {
-
       "type": "function",
-
         "function": {
-
             "name": "get_weather",
-
             "description": "Get weather of a location, the user should supply a location first.",
-
             "parameters": {
-
                 "type": "object",
-
                 "properties": {
-
                     "location": {
-
                         "type": "string",
-
                         "description": "The city and state, e.g. San Francisco, CA"
-
                     }
-
                 },
-
                 "required": ["location"]
-
             }
-
         }
-
     }
-
   ],
-
   "stream": false,
-
   "temperature": 0
-
 }
-
 ```
 
 
@@ -522,219 +421,114 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 response body
 
 ```json
-
 {
-
   "id": "2e85bf30-d509-4ee6-bc18-b65d1b8e02df",
-
   "object": "chat.completion",
-
   "created": 1756430135,
-
   "model": "deepseek-chat",
-
   "choices": [
-
     {
-
       "index": 0,
-
       "message": {
-
         "role": "assistant",
-
         "content": "I'll check the weather in Hangzhou for you right away.",
-
         "tool_calls": [
-
           {
-
             "index": 0,
-
             "id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
-
             "type": "function",
-
             "function": {
-
               "name": "get_weather",
-
               "arguments": "{\"location\": \"hangzhou\"}"
-
             }
-
           }
-
         ]
-
       },
-
       "logprobs": null,
-
       "finish_reason": "tool_calls"
-
     }
-
   ],
-
   "usage": {
-
     "prompt_tokens": 212,
-
     "completion_tokens": 28,
-
     "total_tokens": 240,
-
     "prompt_tokens_details": {
-
       "cached_tokens": 192
-
     },
-
     "prompt_cache_hit_tokens": 192,
-
     "prompt_cache_miss_tokens": 20
-
   },
-
   "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
-
 }
-
 ```
-
-
 
 ### Function Calling conversation
 
-
+这里是 Function Calling  实际 HTTP 请求调用，以及返回的内容。
 
 request
 
-
-
 ```http
-
 POST https://api.deepseek.com/chat/completions HTTP/1.1
-
 Content-Type: application/json
-
 Accept: application/json
-
 Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 
-
-
 {
-
   "messages": [
-
     {
-
       "role": "system",
-
       "content": "You are an intelligent customer service agent named Alice. Your main role is to help users answer their questions."
-
     },
-
     {
-
       "role": "user",
-
       "content": "Hello, please check the weather in Beijing."
-
     },
-
     {
-
       "role": "assistant",
-
       "content": "I'll check the weather in Hangzhou for you right away.",
-
       "tool_calls": [
-
         {
-
           "index": 0,
-
           "id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
-
           "type": "function",
-
           "function": {
-
             "name": "get_weather",
-
             "arguments": "{\"location\": \"hangzhou\"}"
-
           }
-
         }
-
       ]
-
     },
-
     {
-
       "role": "tool",
-
       "tool_call_id": "call_0_c9f112b0-766e-48ee-8b7d-a70c14f16b43",
-
       "content": "Sunny, 29°C"
-
     }
-
   ],
-
   "model": "deepseek-chat",
-
   "tools": [
-
     {
-
       "type": "function",
-
       "function": {
-
         "name": "get_weather",
-
         "description": "Get weather information for a location.",
-
         "parameters": {
-
           "type": "object",
-
           "properties": {
-
             "location": {
-
               "type": "string",
-
               "description": "The name of the city to get weather for. Only support low case location name, like beijing, shanghai, hangzhou, newyork"
-
             }
-
           },
-
           "required": [
-
             "location"
-
           ]
-
         }
-
       }
-
     }
-
   ],
-
   "stream": false,
-
   "temperature": 0
-
 }
 
 ```
@@ -746,715 +540,341 @@ response body
 
 
 ```json
-
 {
-
-  "id": "2ef2e44e-8540-4798-8530-77b63209e1a9",
-
+  "id": "2ef2e44e-8540-4798-8530-77b63209e1a9",
   "object": "chat.completion",
-
   "created": 1756430434,
-
   "model": "deepseek-chat",
-
   "choices": [
-
     {
-
       "index": 0,
-
       "message": {
-
         "role": "assistant",
-
         "content": "The weather in Hangzhou is currently sunny with a temperature of 29°C. It's a beautiful day there! Is there anything else you'd like to know about the weather or any other assistance I can provide?"
-
       },
-
       "logprobs": null,
-
       "finish_reason": "stop"
-
     }
-
   ],
-
   "usage": {
-
     "prompt_tokens": 238,
-
     "completion_tokens": 44,
-
     "total_tokens": 282,
-
     "prompt_tokens_details": {
-
       "cached_tokens": 0
-
     },
-
     "prompt_cache_hit_tokens": 0,
-
     "prompt_cache_miss_tokens": 238
-
   },
-
   "system_fingerprint": "fp_feb633d1f5_prod0820_fp8_kvcache"
-
 }
 
 ```
 
-
-
 这就是大模型，就是猜你下一段词是什么，就这么简单。
-
-
 
 # 背景介绍
 
-
-
 一开始 OpenAI 的 GPT 接口出来的时候，并没有提供 Function Calling 这样的功能，但是为了和现实世界进行交互，LangChain, Smolagents 这种框架，又想要和
-
 现实世界进行交互，并获得相应的信息，它就只能在返回的文本上，自定义格式，通过装饰器 @tool（Java 里可以用注解）解析成一个 Tool 对象，这个对象有入参，及其参数描述，
-
 有这个方法的描述。在调用大模型的时候，只需要 Tool 解析成 System prompt 文本，并且以特定的格式返回，进行是否调用工具，然后执行下一步。这里我们暂且按下不表，
-
 后面会介绍 Cline 是如何实现的，详细解释通过控制 system prompt 来实现结构化返回，并且解析结构化返回内容实现“智能”调用工具。
 
-
-
 这样说有点抽象，写一个例子，这里我是用 uv 来管理包。我并不推荐使用 LangChain 用于生产环境，变更太多了，本来就是一件简单的事情，越搞越复杂，已经过于臃肿了，
-
-LangChain Community，文档也更新不及时，对新人来说很不友好，什么 LangSmith，LangGraph 干什么呢。
-
-
+LangChain Community，文档也更新不及时，对新人来说很不友好，什么 LangSmith 监控收费， 下面的演示，只是使用 LangChain 做一个调用 Tool 的样例。
 
 ## ReAct + @Tool
+需要提前安装好 uv, langchain, langchain-openai, python-dotenv.
 
-
-
-prepare install uv, langchain, langchain-openai, python-dotenv.
-
-
+所谓 ReAct 其实就类似思维链的形式，思考 -> 行动 -> 观察 -> 思考 -> 行动 -> 观察 -> ... 如此循环，直到完成任务。
 
 ```shell
-
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
 uv init langchain-weather
-
 cd langchain-weather && uv add langchain langchain-openai python-dotenv
-
-
-
 # replace this api_key with your own
-
 echo "DEEPSEEK_API_KEY=your_deepseek_api_key_here" > .env
-
 ```
-
-
-
 main.py
-
 ```python
-
 import os
-
 import asyncio
-
 import warnings
 
-
-
 # 禁用 LangSmith 追踪和警告
-
 os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 warnings.filterwarnings("ignore", category=UserWarning, module="langsmith")
 
-
-
 from dotenv import load_dotenv
-
 from langchain_openai import ChatOpenAI
-
 from langchain.agents import create_react_agent, AgentExecutor
-
 from langchain.prompts import ChatPromptTemplate
-
 from langchain.tools import tool
 
-
-
 load_dotenv()
-
-
 
 api_key = os.getenv("DEEPSEEK_API_KEY")
 
 if not api_key:
-
     raise ValueError("DEEPSEEK_API_KEY not found in .env file")
 
-
-
 llm = ChatOpenAI(
-
     model="deepseek-chat",
-
     base_url="https://api.deepseek.com/v1",
-
     api_key=api_key,
-
     streaming=True,
-
     temperature=0.1,
-
 )
 
-
-
-
 @tool
-
 def get_weather(location: str) -> str:
-
     """
-
     Get weather information for a location.
 
-
-
     Args:
-
         location (str): The name of the city to get weather for. Only support low case location name, like beijing, shanghai, hangzhou, newyork'.
 
-
-
     Returns:
-
         str: Weather information for the specified location.
-
     """
-
     match location:
-
         case "beijing":
-
             return "北京今日天气：晴天，气温 25°C，湿度 45%，微风"
-
         case "shanghai":
-
             return "上海今日天气：多云，气温 28°C，湿度 55%，微风"
-
         case "hangzhou":
-
             return "杭州今日天气：小雨转大雨，气温 22°C 到 28°C，湿度 70%，微风"
-
         case "newyork":
-
             return "纽约今日天气：小雨，气温 15°C，湿度 40%，微风"
-
         case _:
-
             return f"抱歉，暂时无法查询到 '{location}' 的天气信息。目前仅支持查询北京的天气。"
-
-
-
 
 # ReAct 提示模板
 
 from langchain import hub
 
-
-
 prompt = hub.pull("hwchase17/react")
 
-
-
 # 创建 ReAct agent
-
 agent = create_react_agent(llm, [get_weather], prompt)
-
 agent_executor = AgentExecutor(agent=agent, tools=[get_weather], verbose=False)
 
 
-
-
 async def main():
-
     user_input = "查询纽约天气"
-
     print(f"用户输入: {user_input}\n")
-
-
-
     try:
-
         # 使用 astream_events 获取真正的流式输出
-
         current_content = ""
-
         async for event in agent_executor.astream_events(
-
             {"input": user_input},
-
             version="v1"
-
         ):
-
             kind = event["event"]
-
             # 流式输出 LLM 内容
-
             if kind == "on_chat_model_stream":
-
                 content = event["data"]["chunk"].content
-
                 if content:
-
                     current_content += content
-
                     print(content, end="", flush=True)
-
             # 工具开始执行时
-
             elif kind == "on_tool_start":
-
                 if event["name"] == "get_weather":
-
                     # 从当前累积的内容中提取工具参数
-
                     lines = current_content.split('\n')
-
                     action_input = ""
-
                     for line in lines:
-
                         if "Action Input:" in line:
-
                             action_input = line.split("Action Input:")[-1].strip()
-
                             break
 
                     print(f"\n\n🔧 开始调用工具: {event['name']}")
-
                     print(f"   输入参数: {action_input}")
 
             # 工具执行完成时
-
             elif kind == "on_tool_end":
-
                 if event["name"] == "get_weather":
-
                     tool_output = event["data"].get("output", "")
-
                     print(f"\n📝 工具返回结果: {tool_output}\n")
 
         print(f"\n\n{'-'*50}")
-
     except Exception as e:
-
         print(f"❌ 错误: {e}")
 
-
-
-
 if __name__ == "__main__":
-
     asyncio.run(main())
 
 ```
 
-
-
-execute main.py
-
-
-
+运行代码
 ```shell
-
 uv run main.py
-
 ```
 
-
-
-response
-
+响应内容
 ```plaintext
-
 用户输入: 查询纽约天气
 
-
-
 Thought: The user is asking for the weather in New York. I need to use the get_weather function to retrieve this information. The function requires the location name in lowercase, so I should use "newyork".
-
-
 
 Action: get_weather
 
 Action Input: newyork
 
-
-
 🔧 开始调用工具: get_weather
-
    输入参数: newyork
-
-
 
 📝 工具返回结果: 纽约今日天气：小雨，气温 15°C，湿度 40%，微风
 
-
-
 I now know the final answer
-
-
 
 Final Answer: 纽约今日天气：小雨，气温 15°C，湿度 40%，微风
 
 --------------------------------------------------
 
 ```
-
-
-
 可以从上面看出来，可以通过 LangChain 这样的框架，是可以通过调用 “代码” 来返回实时的内容加入到对话中。这里用到的是比较早期的 ReAct 形式，通过
-
 编写合适的系统提示词，来决定调用什么工具，下一步如何执行。在上一节展示的 Function Calling 是比较后面才出的，我 23 年刚做这块的时候，OpenAI 还没有
-
 推出 Function Calling。
 
-
-
 两者呢，本质上，都是通过调用项目内的方法/函数来实现和现实世界交互，获取最新的信息，并且返回给大模型，让大模型继续猜下一个 Token，下下一个 Token 是什么，然后返回给你
-
 的一个过程。
 
+你 Python 有 LangChain，Java 有 Spring AI，基于 TypeScript 写的 AI 客户端有 Cline，有 Continue，有 Claude Desktop，有 Copilot，每个语言，每个框架都有自己的实现，那我想实现一个获取当前天气，或者操作 Redis，MongoDB 插入数据，更新数据这些 tool（工具）怎么办？每个客户端都写一遍？重复造轮子，还要改它们对应的源码，这样对不了解大模型，不了解代码的人来说不太友好，而且都是重复的工作，每个语言都实现一遍，不好。
 
+这个时候，也就是 2024 年 11 月，Claude 牵头提出了 MCP Model Context Protocol 一个概念，我们先不用管里面的其他组件，例如 prompts, resources, 如何握手，JSON RPC 这些东西。你只需要知道，MCP 就是为了解决重复造轮子，大家只要配置相应的内容，就可以直接调用这些封装好的 tools 就行了。Claude 让大家都来接这个协议，至于你怎么调用怎么在 IPC（Internet Process Communication） 中协商在协议里面都写了。
 
-你 Python 有 LangChain，Java 有 Spring AI，基于 TypeScript 写的 AI 客户端有 Cline，有 Continue，有 Claude Desktop，有 Copilot，每个语言，每个框架都有自己的实现，那我想实现一个
-
-获取当前天气，或者操作 Redis，MongoDB 插入数据，更新数据这些 tool（工具）怎么办？每个客户端都写一遍？重复造轮子，还要改它们对应的源码，这样对不了解大模型，不了解
-
-代码的人来说不太友好，而且都是重复的工作，每个语言都实现一遍，不好。
-
-
-
-这个时候，也就是 2024 年 11 月，Claude 牵头提出了 MCP Model Context Protocol 一个概念，我们先不用管里面的其他组件，例如 prompts, resources, 如何握手，JSON RPC 这些东西。
-
-你只需要知道，MCP 就是为了解决重复造轮子，大家只要配置相应的内容，就可以直接调用这些封装好的 tools 就行了。Claude 让大家都来接这个协议，至于你怎么调用
-
-怎么在 IPC（Internet Process Communication） 中协商在协议里面都写了。
-
-
-
-LangChain ReAct + Tool + LLM
+LangChain ReAct + Tool + LLM 时序图
 
 ```mermaid
-
 sequenceDiagram
-
     title LangChain + Tool + 大模型调用过程（ReAct模式）
-
     participant User as 用户
-
     participant LC as LangChain框架
-
     participant LLM as 大模型
-
     participant Tool as 工具/函数
-
     participant API as 外部API/数据源
-
     User->>LC: 发送查询请求<br/>"今天北京天气如何？"
-
     LC->>LLM: 发送prompt + 系统提示词<br/>（包含工具描述）
-
     Note over LLM: 思考(Thought):<br/>需要获取实时天气信息
-
     LLM->>LC: 返回决策<br/>Action: 调用weather_tool<br/>Action Input: 北京
-
     LC->>Tool: 执行weather_tool("北京")
-
     Tool->>API: HTTP请求天气API
-
     API-->>Tool: 返回天气数据
-
     Tool-->>LC: 返回结构化数据<br/>{temp: 25°C, status: "晴"}
-
     LC->>LLM: 发送观察结果(Observation)<br/>+ 原始问题
-
     Note over LLM: 基于获取的数据<br/>生成最终回答
-
     LLM->>LC: 返回最终答案<br/>"北京今天晴天，温度25°C"
-
     LC->>User: 展示最终结果
-
     Note over LC,LLM: ReAct循环：Thought→Action→Observation
-
 ```
 
-MCP
+如果使用 MCP 的话，时序图会如下所示
 
 ```mermaid
-
 sequenceDiagram
-
     title Cline作为MCP Host+Client与Server及大模型的交互过程
-
     participant User as 用户
-
     participant Cline as Cline<br/>(MCP Host+Client)
-
     participant MCP_S as MCP Server<br/>(工具提供方)
-
     participant LLM as 大模型<br/>(Claude/GPT等)
-
     participant Resource as 外部资源<br/>(Redis/MongoDB/API)
-
     Note over Cline,MCP_S: 初始化阶段
-
     Cline->>MCP_S: 建立连接（IPC/stdio）
-
     MCP_S->>Cline: 握手协议<br/>返回支持的capabilities
-
     Cline->>MCP_S: 请求可用工具列表<br/>tools/list
-
     MCP_S->>Cline: 返回工具清单<br/>[weather_tool, redis_tool, mongodb_tool]
-
     Note over User,Resource: 用户交互阶段
-
     User->>Cline: "将用户数据存入Redis"
-
     Cline->>LLM: 发送请求 + 可用工具描述<br/>（通过Function Calling或ReAct）
-
     LLM->>Cline: 返回工具调用决策<br/>tool: redis_tool<br/>params: {action: "set", key: "user:123", value: {...}}
-
     Note over Cline: 作为MCP Client<br/>调用MCP Server
-
     Cline->>MCP_S: JSON-RPC调用<br/>tools/call<br/>{name: "redis_tool", arguments: {...}}
-
     MCP_S->>Resource: 执行Redis操作<br/>SET user:123 {...}
-
     Resource-->>MCP_S: 操作成功
-
     MCP_S-->>Cline: 返回执行结果<br/>{status: "success", data: "OK"}
-
     Cline->>LLM: 发送工具执行结果
-
     LLM->>Cline: 生成最终回答<br/>"数据已成功存入Redis"
-
     Cline->>User: 展示结果
-
     Note over Cline,MCP_S: MCP协议优势：<br/>1. 统一接口标准<br/>2. 跨语言支持<br/>3. 避免重复开发
-
 ```
-
-
-
-相信你或多或少用过 MCP，或者听过，就下面这些配置就能让 LLM 客户端自动调用这些工具，像下面这样配置。
-
-
-
-```json
-
-{
-
-  "mcpServers": {
-
-    "figma-mcp": {
-
-      "command": "npx",
-
-      "args": ["figma-mcp"],
-
-      "env": {
-
-        "FIGMA_API_KEY": "<YOUR_API_KEY>"
-
-      }
-
-    }
-
-  }
-
-}
-
-```
-
-
-
-只需要通过这样配置，就能实现通过 Copilot 或者 Cursor 或者任何一个支持 MCP 的客户端，就用自然语言描述，就能调用这个工具。
-
-
 
 接下来，我会通过从零开始，只调用最基础的库，任何语言的 stdio 库来实现 MCP Client，Server，Host。并且接入 Cursor，Cline，Copilot，Qwen Coder 这些工具。
 
 很简单，一步步来，你也是了解 MCP，LLM 的 “专家”。
 
-
-
 ## 本质
 
+和大模型人和相关的操作，都是加入一段文本，然后让大模型输出内容，仅此而以。管你什么 Prompt Enginerring、Context Engineering、RAG、MultiAgent、ReAct、操作屏幕的 Agent（通过 Omniparser 将截图的内容输出成大模型能力理解的文本内容）。并且每次调用大模型输出的 Token 是有限的，例如 DeepSeek 不开启推理模式，默认是 4K，最大是 8K 的 Token 输出，那些看起来做到无限输出的，其实是反复调用了大模型。
 
-
-和大模型人和相关的操作，都是加入一段文本，然后让大模型输出内容，仅此而以。管你什么 Prompt Enginerring、Context Engineering、RAG、MultiAgent、
-
-ReAct、操作屏幕的 Agent（通过 Omniparser 将截图的内容输出成大模型能力理解的文本内容）。并且每次调用大模型输出的 Token 是有限的，
-
-例如 DeepSeek 不开启推理模式，默认是 4K，最大是 8K 的 Token 输出，那些看起来做到无限输出的，其实是反复调用了大模型。
-
-
-
-MCP 所解决的问题，只不过是解决重复造轮子，大家只要配置相应的内容，就可以直接调用这些封装好的 tools 就行了。这是最主要的功能，还有其他的功能，例如
-
-prompts 来构建 prompts 模版。例如你输入了一段话，想让 Cursor 给你生成图片，但是你的提示词写的不好，就可以通过调用这个 prompt 来返回更合适的提示词。
-
-
+MCP 所解决的问题，只不过是解决重复造轮子，大家只要配置相应的内容，就可以直接调用这些封装好的 tools 就行了。这是最主要的功能，还有其他的功能，例如 prompts 来构建 prompts 模版。例如你输入了一段话，想让 Cursor 给你生成图片，但是你的提示词写的不好，就可以通过调用这个 prompt 来返回更合适的提示词。
 
 ## MCP 之间的各个角色
 
-
-
 ```mermaid
-
 graph LR
-
     subgraph "Application Host Process"
-
         Host[Host]
-
         Client1[Client 1]
-
         Client2[Client 2]
-
         Client3[Client 3]
-
         Host --> Client1
-
         Host --> Client2
-
         Host --> Client3
-
     end
-
     subgraph Internet["Internet"]
-
         Server3[Server 3<br/>External APIs]
-
         RemoteC[(Remote<br/>Resource C)]
-
         Server3 <--> RemoteC
-
     end
-
     subgraph LocalMachine["Local machine"]
-
         Server1[Server 1<br/>Files & Git]
-
         LocalA[(Local<br/>Resource A)]
-
         Server2[Server 2<br/>Database]
-
         LocalB[(Local<br/>Resource B)]
-
         Server1 <--> LocalA
-
         Server2 <--> LocalB
-
     end
-
     Client1 --> Server1
-
     Client2 --> Server2
-
     Client3 --> Server3
-
 ```
-
-
 
 上面是官网的图，可以看到总共就三个角色
 
 1. Host
-
 2. Client
-
 3. Server
 
-
-
-Server 负责调用外部资源，Client 负责调用 Server，Host 选择调用哪些 Client，Host 和 Client 是在一个进程中的，Server 是另外一个进程，
-
-可以是远程一个 HTTP 服务器，可以是 Host 的子进程。Client 和 Server 之间使用 JSONRPC2.0 通信，传输通道使用 Stdio 也就是标准输入输出，或者 Streamable HTTP。
-
-
+Server 负责调用外部资源，Client 负责调用 Server，Host 选择调用哪些 Client，Host 和 Client 是在一个进程中的，Server 是另外一个进程，可以是远程一个 HTTP 服务器，可以是 Host 的子进程。Client 和 Server 之间使用 JSONRPC2.0 通信，传输通道使用 Stdio 也就是标准输入输出，或者 Streamable HTTP。
 
 ```mermaid
-
 graph LR
-
-
-
     subgraph Host ["Host"]
-
         LLM["LLM"] --> Client["Client"]
-
         Client --> JSONRPC1["JSONRPC2.0"]
-
         JSONRPC1 --> Client
-
         Client --> LLM
-
     end
-
     subgraph ServerSide ["ServerSide"]
-
         Other["other Resource"] --> Server["Server"]
-
         Server --> JSONRPC2["JSONRPC2.0"]
-
         JSONRPC2 --> Server
-
         Server --> Other
-
     end
-
     subgraph Transport ["Transport"]
-
         T["Stdio, Streamable HTTP"]
-
     end
-
     JSONRPC1 --> T
-
     JSONRPC2 --> T
-
     T --> JSONRPC1
-
     T --> JSONRPC2
-
-
-
 ```
 
-
-
-真实的调用如上图所示，从左到右，Host 中的大模型选择调用 Client，Client 选择调用 Server，Server 选择调用其他资源，然后将调用返回的文本内容逐层返回给大模型。
-
-
-
-基于这个，我们就很容易构建不同的层次应该做什么，首先来实现 MCP Server，使用的 Stdio 来实现和 Client 的交互，也能直接作用于 Client 或者 Cursor 这样的 Host。
-
-
+真实的调用如上图所示，从左到右，Host 中的大模型选择调用 Client，Client 选择调用 Server，Server 选择调用其他资源，然后将调用返回的文本内容逐层返回给大模型。基于这个，我们就很容易构建不同的层次应该做什么，首先来实现 MCP Server，使用的 Stdio 来实现和 Client 的交互，也能直接作用于 Client 或者 Cursor 这样的 Host。
 
 接下来会自下而上实现相关代码，从传输的 DTO，到 MCP Server，到 MCP Host + Client，最后再组合 LLM 实现完整的，可交互的简易 Agent。
-
 ## 代码设计概览
 
 由 MCP 的架构，我们可以抽象出这几个模块：
@@ -1506,157 +926,81 @@ graph LR
 MCP Server 重要的事情就是做工具的调用，具体时序图如下
 
 ```mermaid
-
 sequenceDiagram
-
     participant Client as 外部客户端
-
     participant JSONRPC as JSONRPCServer
-
     participant MCP as McpServer
-
     participant Session as ServerSession
-
     participant Tool as @tool 装饰器
-
     Note over Client, Tool: 1. 服务启动阶段
-
     Note over Session, Tool: 1.1 工具注册
-
     Session->>Tool: @tool 装饰 get_weather()
-
     Tool-->>Session: 返回 SimpleTool 对象
-
     Session->>Tool: @tool 装饰 list_records()
-
     Tool-->>Session: 返回 SimpleTool 对象
-
     Note over MCP, Session: 1.2 MCP服务初始化
-
     MCP->>Session: 获取工具列表
-
     Session-->>MCP: [SimpleTool1, SimpleTool2]
-
     MCP->>MCP: SimpleTool → Tool → ToolDefinition
-
     Note over JSONRPC, MCP: 1.3 服务器启动
-
     JSONRPC->>MCP: 注册 initialize 方法
-
     JSONRPC->>MCP: 注册 tools/list 方法
-
     JSONRPC->>MCP: 注册 tools/call 方法
-
     JSONRPC->>JSONRPC: 开始监听 stdin
-
     Note over Client, Tool: 2. 客户端初始化请求
-
     Client->>JSONRPC: {"jsonrpc":"2.0","method":"initialize",...}
-
     JSONRPC->>JSONRPC: 解析 JSON-RPC 请求
-
     JSONRPC->>JSONRPC: 参数过滤
-
     JSONRPC->>MCP: initialize(protocolVersion, capabilities)
-
     MCP->>MCP: 处理初始化逻辑
-
     MCP-->>JSONRPC: InitializeJSONRPCResult
-
     JSONRPC->>JSONRPC: 格式化响应
-
     JSONRPC-->>Client: {"jsonrpc":"2.0","result":{...},"id":1}
-
     Note over Client, Tool: 3. 工具列表查询
-
     Client->>JSONRPC: {"jsonrpc":"2.0","method":"tools/list",...}
-
     JSONRPC->>JSONRPC: 解析请求
-
     JSONRPC->>MCP: list_tools(cursor)
-
     MCP->>MCP: 获取工具定义列表
-
     MCP-->>JSONRPC: ListToolsJSONRPCResult
-
     JSONRPC-->>Client: 返回工具列表 JSON
-
     Note over Client, Tool: 4. 工具调用请求
-
     Client->>JSONRPC: {"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_weather","arguments":{"location":"Beijing"}}}
-
     JSONRPC->>JSONRPC: 解析请求
-
     JSONRPC->>JSONRPC: 智能参数过滤
-
     JSONRPC->>MCP: call_tool(name="get_weather", arguments={"location":"Beijing"})
-
     MCP->>MCP: 查找工具函数
-
     MCP->>Session: tool_func(session, **arguments)
-
     Session->>Session: get_weather("Beijing")
-
     Session->>Session: 记录查询历史
-
     Session-->>MCP: "The weather of Beijing is sunny, 25°C"
-
     MCP->>MCP: 创建 TextToolContent
-
     MCP-->>JSONRPC: CallToolJSONRPCResult
-
     JSONRPC->>JSONRPC: 格式化响应
-
     JSONRPC-->>Client: {"jsonrpc":"2.0","result":{"content":[{"type":"text","text":"..."}]}}
-
     Note over Client, Tool: 5. 查询记录请求
-
     Client->>JSONRPC: {"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_get_weather_records"}}
-
     JSONRPC->>JSONRPC: 解析请求
-
     JSONRPC->>MCP: call_tool(name="list_get_weather_records")
-
     MCP->>Session: list_get_weather_records()
-
     Session->>Session: 返回记录副本
-
     Session-->>MCP: ["Beijing"]
-
     MCP-->>JSONRPC: CallToolJSONRPCResult
-
     JSONRPC-->>Client: 返回记录列表
-
     Note over Client, Tool: 6. 通知类请求（无响应）
-
     Client->>JSONRPC: {"jsonrpc":"2.0","method":"notifications/tools/list_changed"}
-
     JSONRPC->>JSONRPC: 识别为通知类型（无id）
-
     JSONRPC->>MCP: notify_tool_change()
-
     MCP->>MCP: 处理通知逻辑
-
     Note over JSONRPC: 不返回响应给客户端
-
     Note over Client, Tool: 7. 错误处理示例
-
     Client->>JSONRPC: {"jsonrpc":"2.0","method":"unknown_method",...}
-
     JSONRPC->>JSONRPC: 方法未找到
-
     JSONRPC-->>Client: {"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"}}
-
     Note over Client, Tool: 8. 服务关闭
-
     Client->>JSONRPC: EOF 或 KeyboardInterrupt
-
     JSONRPC->>JSONRPC: 停止监听循环
-
     JSONRPC->>JSONRPC: 清理资源
-
     Note over JSONRPC: 服务器关闭
-
 ```
 
 ### MCP Host + Client
@@ -1674,123 +1018,63 @@ sequenceDiagram
 
 # Python
 
-
 创建项目
 
 没有安装 uv 可以使用 `pip install uv` 快速安装。
 
 ```shell
-
 uv init mcp-mini
-
 cd cd mcp-mini
-
 uv venv --python 3.13.2
-
 uv add "pydantic==2.11.7"
-
 uv add "requests==2.32.5"
-
 ```
-
 ## DTO
-
-
-
-这里根据 MCP 协议定义了以下内容，JSONRPC 请求响应类，以及将它们转成 JSON 字符串工具方法，initiallize 方法请求和响应类，还有最重要的 tools/list 和 tools/call 的请求和响应。
-
-
-
-它们的结构按照 MCP 官方文档定义，具体流程如下图所示。
-
-
+这里根据 MCP 协议定义了以下内容，JSONRPC 请求响应类，以及将它们转成 JSON 字符串工具方法，initiallize 方法请求和响应类，还有最重要的 tools/list 和 tools/call 的请求和响应。它们的结构按照 MCP 官方文档定义，具体流程如下图所示。
 
 首先是握手，协商协议版本，以及客户端和服务器的信息。然后是工具列表，获取工具列表，以及工具的参数。最后是调用工具，执行工具，获取工具的返回结果。
-
-
 
 握手协商
 
 ```mermaid
-
 sequenceDiagram
-
     participant Client
-
     participant Server
-
     Note over Client, Server: Initialization Phase
-
     Client->>Server: initialize request
-
     Server-->>Client: initialize response
-
     Client-->>Server: initialized notification
-
     Note over Client, Server: Operation Phase
-
     rect rgb(173, 216, 230)
-
         Note over Client, Server: Normal protocol operations
-
     end
-
     Note over Client, Server: Shutdown
-
     Client-->>Server: Disconnect
-
     Note over Client, Server: Connection closed
-
 ```
-
 列出所有工具信息，工具调用。
-
-
 
 注：MCP 协议说明了，通知类的消息，可以通知工具变更，prompts 变更，资源变更，等等。我这里没实现，只做最最最简单版本的 MCP 程序。
 
-
-
 ```mermaid
-
 sequenceDiagram
-
     participant LLM
-
     participant Client
-
     participant Server
-
     Note over Client, Server: Discovery
-
     Client->>Server: tools/list
-
     Server-->>Client: List of tools
-
     Note over LLM, Client: Tool Selection
-
     LLM->>Client: Select tool to use
-
     Note over Client, Server: Invocation
-
     Client->>Server: tools/call
-
     Server-->>Client: Tool result
-
     Client->>LLM: Process result
-
     Note over Client, Server: Updates
-
     Server-->>Client: tools/list_changed
-
     Client->>Server: tools/list
-
     Server-->>Client: Updated tools
-
 ```
-
-  0
-
 创建 dto.py 文件
 
 ```python
@@ -1951,10 +1235,13 @@ class ListToolsJSONRPCRequest(JSONRPCRequest):
 class ToolParameterProperty(BaseModel):
     """Tool parameter property definition"""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
-    type: str
-    description: str
+    type: str | None = None
+    description: str | None = None
+    anyOf: list[dict[str, Any]] | None = None
+    oneOf: list[dict[str, Any]] | None = None
+    allOf: list[dict[str, Any]] | None = None
 
 
 class ToolInputSchema(BaseModel):
@@ -2099,8 +1386,6 @@ class CallToolJSONRPCResult(JSONRPCResult):
             super().__init__(id=id, result=result, error=error, **data)
 
 ```
-
-
 
 ## MCP Server
 创建 mcp_server.py 文件，这里又做了分层，其实就是整洁架构，代码中每层做不同的事情。
@@ -2722,16 +2007,15 @@ if __name__ == "__main__":
 至此，我们就写出了一个最简单版本的 MCP Server，接下来我们简单实验一下。
 
 启动 MCP Server stdio
+
 ```shell
-
 uv run mcp_server.py
-
 ```
-
 ### initialize
 
-```json
+初始化握手协商阶段
 
+```json
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{"roots":{"listChanged":true},"sampling":{},"elicitation":{}},"clientInfo":{"name":"ExampleClient","title":"Example Client Display Name","version":"1.0.0"}}}
 
 ```
@@ -2739,40 +2023,32 @@ uv run mcp_server.py
 输出了
 
 ```json
-
 {"id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"logging":{"listChanged":false},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":true},"completions":{"listChanged":false},"experimental":{"listChanged":false}},"serverInfo":{"name":"Fake-Weather-Server","version":"0.0.1-SNAPSHOT","title":"Fake-Weather-Server MCP Server"},"instructions":"Fake-Weather MCP Server"},"jsonrpc":"2.0"}
 
 ```
-
 ### tools/list
 
+列出所有可用的工具，记住，这里不能有任何的换行。
+
 ```json
-
 {"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"cursor":"0"}}
-
 ```
 
 输出了
 
 ```json
-
 {"id":1,"result":{"tools":[{"name":"get_weather","description":"Get the weather of a location","inputSchema":{"type":"object","properties":{"location":{"type":"string","description":"Parameter location"}},"required":["location"]}},{"name":"list_get_weather_records","description":"List all get weather records","inputSchema":{"type":"object","properties":{},"required":[]}}]},"jsonrpc":"2.0"}
-
 ```
 
 ### tools/call
 ```json
-
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_weather","arguments":{"location":"Beijing"}}}
-
 ```
 
 输出
 
 ```json
-
 {"id":1,"result":{"content":[{"type":"text","text":"The weather of Beijing is sunny, 25°C"}],"isError":false},"jsonrpc":"2.0"}
-
 ```
 
 ### 小结
@@ -2802,12 +2078,11 @@ uv run /[你自己的文件路径]/mcp-mini/mcp_server.py --arg1 "Beijing" --arg
 ## MCP Client
 
 接下来，我们要实现一下简单的 Agent 用于适配各个大模型。现在所谓的 Agent，或者 Claude Code，它们的本质，都是输入文本，然后让大模型输出 XML 或者 JSON，优先推荐 XML。
-1. 更适合流式输出；
+1. 相比于 JSON 更适合流式输出；
 2. 训练的时候就有特殊的 `<eos></eos>` 表示开始和结束。
 3. Cline，Cluade Code 主流的 Agent 应用，都是用的这个。
 
 我们这里把 Host 和 Client 的内容整合到一起，简单理解，在没有 MCP 的时候，我们调用大模型，流式返回会是下面的结果，我只要稍微改造一下，让它输出固定格式的内容，XML 格式返回，我们就可以根据 XML 返回的内容，进行调用对应的 Tool，这个时候，我们先不急着接入 MCP，而是先实现一个能够调用获取输入的数据的对应映射内容。
-
 
 ### 添加依赖
 
@@ -2914,7 +2189,6 @@ if __name__ == "__main__":
     asyncio.run(main())
 
 ```
-
 
 输出
 ```plaintext
@@ -3213,7 +2487,7 @@ if __name__ == "__main__":
 </arguments>
 </use_mcp_tool>
 ```
-### 阶段3：调用方法
+### 阶段3：调用 Tool 的能力
 
 这一次，给它加上调用工具，多轮对话的能力，重要的是，给它加上 `final_answer` 这个 tool，来表示对话已经结束。
 
@@ -4873,8 +4147,9 @@ def build_mcp_servers_section(mcp_clients: dict[str, MCPClient]) -> str:
                     required = tool.inputSchema.required or []
                     for param_name, param_prop in tool.inputSchema.properties.items():
                         required_mark = "(必需)" if param_name in required else "(可选)"
+                        description = param_prop.description or "无描述"
                         sections.append(
-                            f"    - {param_name}：{param_prop.description} {required_mark}"
+                            f"    - {param_name}：{description} {required_mark}"
                         )
                 else:
                     sections.append("  输入参数：无")
@@ -5358,6 +4633,4 @@ MCP 客户端已就绪，开始交互式对话
 
 # 结语
 
-至此，我们实现了 MCP Server，MCP Client + Host。实现了一个可以简单交互的，基于 XML 结构回复的 “Agent”。这就是 MCP，就这么简单。LLM 一切皆文本，猜字游戏而已。
-
-可以配置任何的 mcp.json，只要它们是基于 stdio 的方式，实现的通信，HTTP 的其实也大差不差。本质都是修改 System Prompt，调用工具实现。
+至此，我们实现了 MCP Server，MCP Client + Host。实现了一个可以简单交互的，基于 XML 结构回复的 “Agent”。这就是 MCP，就这么简单。LLM 一切皆文本，猜字游戏而已。可以配置任何的 mcp.json，只要它们是基于 stdio 的方式，实现的通信，HTTP 的其实也大差不差。本质都是修改 System Prompt，调用工具实现。
