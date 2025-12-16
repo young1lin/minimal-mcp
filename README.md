@@ -15,7 +15,7 @@
 
 下面的操作是不是看起来很神秘，只需要输入文字，就能打开网页，点击登录，输入账号。
 
-![演示视频](https://github.com/user-attachments/assets/032b4a63-b8ca-4bed-b70b-2d8186d71506)
+<video src="https://github.com/user-attachments/assets/6720b83b-3eef-4ab8-8643-e6629ac5348e" controls width="100%"></video>
 
 其实这个做了这几件事情，在 D-Cline 的进程中，
 1. 使用 npx 命令启动一个了一个子进程，这个进行接受 stdio 输入一段内容；
