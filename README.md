@@ -1,6 +1,6 @@
 # 前言
 
-在使用 Cline、Claude Desktop、Cursor 这些应用的时候，只需要配置一个 `mcp.json` 文件，就可以让大模型使用各种工具，这种是否很神奇？例如下面的配置，我就能让 Cursor 或者 Cline 操作 Chrome 浏览器进行各种操作，例如访问某个网站，点击某个按钮。这一切，都很简单，如果你知道大模型本质是什么，可以跳过下面的 LLM 的内容，直接看
+在使用 Cline、Claude Desktop、Cursor 这些应用的时候，只需要配置一个 `mcp.json` 文件，就可以让大模型使用各种工具，这种是否很神奇？例如下面的配置，我就能让 Cursor 或者 Cline 操作 Chrome 浏览器进行各种操作，例如访问某个网站，点击某个按钮。这一切，都很简单，如果你知道大模型本质是什么，可以跳过下面的 LLM 的内容，直接看[背景介绍](#背景介绍)。
 
 ```json
 {
@@ -18,6 +18,7 @@
 <video src="https://github.com/user-attachments/assets/6720b83b-3eef-4ab8-8643-e6629ac5348e" controls width="100%"></video>
 
 其实这个做了这几件事情，在 D-Cline 的进程中，
+
 1. 使用 npx 命令启动一个了一个子进程，这个进行接受 stdio 输入一段内容；
 2. 将 MCP TOOL 的提示词填充进 D-Cline 的 system prompt 中；
 3. 用户输入然后 D-Cline 调用大模型，返回结构化的 XML 文本；
@@ -45,11 +46,13 @@
 
 详细了解，看我[文章](https://young1lin.github.io/posts/llm-1/)，大模型并没有“记住”你的事情，看下面演示。
 
-不管是 RAG、Agent、MultiAgent、ReAct、Prompt Engineering、Context Engineering 等等，它们做的事情都是一样的，“掩盖” LLM 的不足。就是有上下文窗口限制，并且输入只能图片、文字，输出只能是文字。
+不管是 RAG、Agent、MultiAgent、ReAct、Prompt Engineering、Context Engineering 等等，它们做的事情都是一样的，“掩盖” LLM 的不足。就是有上下文窗口限制，并且输入只能图片、文字，输出只能是文字，在零样本提示词下，很容易出现幻觉，且无法和现实世界进行交互，[这篇文章](https://lilianweng.github.io/posts/2023-06-23-agent/#agent-system-overview)可以说是现在 LLM Agent 必看的文章，详细介绍了所谓的 Agent 应该有什么。
 
-管你吹得什么天花乱坠，它们之间的本质，就是想办法把获取到的信息（文字、图片）传入到 LLM 中，然后进行推理，输出文字，这个文字可以是结构化的文字，也可以就单纯是个文本。
+管你吹得什么天花乱坠，它们之间的本质，就是想办法把获取到的信息（文字、图片）转成文本，带入到 LLM 对话中，然后进行推理，输出文字，这个文字可以是结构化的文字，也可以就单纯是个文本。
 
 我举个简单的例子。我想让大模型返回结构化的内容，按照我的提示词来返回，我需要写类似下面一段提示词:
+
+注：我加这个 thinking step by step 是忘了看哪个论文说只要加了这个提示，就能让大模型一步步回复，回复的内容看起来更好。其他的提示词，就是简化版的 Cline 的 System Prompt。
 
 ```plaintext
 你是D-Cline，是一个优秀的Agent，你精通软件工程，精通各种编程语言、框架、设计模式以及代码的最佳实践。
@@ -193,6 +196,7 @@
 ```
 
 输出
+
 ```json
 {
   "id": "241a56e7-3631-4566-a3e5-261c8e21a369",
@@ -223,6 +227,7 @@
   "system_fingerprint": "fp_08f168e49b_prod0820_fp8_kvcache"
 }
 ```
+
 可以看到，实际上，是取这个 content 里面的内容，那些所谓兼容所有 LLM 的客户端，都是这么写的。还有一种就是将 tool 转成 Function Calling 的方法，有些大模型可能不支持。
 
 ```xml
@@ -232,9 +237,11 @@
 	<arguments>{"city":"杭州"}</arguments>
 </use_mcp_tool>
 ```
-这里做一些非常简单的调用
+
+下面做一些非常简单的调用演示效果
 
 ## 单一调用
+
 请求
 
 ```http
@@ -260,12 +267,9 @@ Authorization: Bearer {{$dotenv DEEPSEEK_API_KEY}}
 }
 ```
 
-
-
 response body
 
 ```json
-
 {
   "id": "e479b679-84d4-48c1-bf6f-ad7f56c87682",
   "object": "chat.completion",
@@ -584,6 +588,7 @@ response body
 LangChain Community，文档也更新不及时，对新人来说很不友好，什么 LangSmith 监控收费， 下面的演示，只是使用 LangChain 做一个调用 Tool 的样例。
 
 ## ReAct + @Tool
+
 需要提前安装好 uv, langchain, langchain-openai, python-dotenv.
 
 所谓 ReAct 其实就类似思维链的形式，思考 -> 行动 -> 观察 -> 思考 -> 行动 -> 观察 -> ... 如此循环，直到完成任务。
@@ -595,7 +600,9 @@ cd langchain-weather && uv add langchain langchain-openai python-dotenv
 # replace this api_key with your own
 echo "DEEPSEEK_API_KEY=your_deepseek_api_key_here" > .env
 ```
+
 main.py
+
 ```python
 import os
 import asyncio
@@ -708,11 +715,13 @@ if __name__ == "__main__":
 ```
 
 运行代码
+
 ```shell
 uv run main.py
 ```
 
 响应内容
+
 ```plaintext
 用户输入: 查询纽约天气
 
@@ -734,6 +743,7 @@ Final Answer: 纽约今日天气：小雨，气温 15°C，湿度 40%，微风
 --------------------------------------------------
 
 ```
+
 可以从上面看出来，可以通过 LangChain 这样的框架，是可以通过调用 “代码” 来返回实时的内容加入到对话中。这里用到的是比较早期的 ReAct 形式，通过
 编写合适的系统提示词，来决定调用什么工具，下一步如何执行。在上一节展示的 Function Calling 是比较后面才出的，我 23 年刚做这块的时候，OpenAI 还没有
 推出 Function Calling。
@@ -875,47 +885,49 @@ graph LR
 真实的调用如上图所示，从左到右，Host 中的大模型选择调用 Client，Client 选择调用 Server，Server 选择调用其他资源，然后将调用返回的文本内容逐层返回给大模型。基于这个，我们就很容易构建不同的层次应该做什么，首先来实现 MCP Server，使用的 Stdio 来实现和 Client 的交互，也能直接作用于 Client 或者 Cursor 这样的 Host。
 
 接下来会自下而上实现相关代码，从传输的 DTO，到 MCP Server，到 MCP Host + Client，最后再组合 LLM 实现完整的，可交互的简易 Agent。
+
 ## 代码设计概览
 
 由 MCP 的架构，我们可以抽象出这几个模块：
+
 1. Host
 2. Client
-    1. 需要包含这个 Client 的 metatdata，例如 Client 的名称，版本，描述等
+   1. 需要包含这个 Client 的 metatdata，例如 Client 的名称，版本，描述等
 3. Server
-    1. JSONRPCServer（负责收发 JSONRPC 请求和响应）
-    2. ServerSession（负责管理会话，维护工具的定义，以及工具的调用）
-    3. McpServer（负责管理工具的定义，以及工具的调用）
-    4. Tool（负责管理工具的定义，以及工具的调用）
-    5. ToolDefinition（负责管理工具的定义，以及工具的调用）
-        1. ToolParameterProperty（负责管理工具的参数属性）
+   1. JSONRPCServer（负责收发 JSONRPC 请求和响应）
+   2. ServerSession（负责管理会话，维护工具的定义，以及工具的调用）
+   3. McpServer（负责管理工具的定义，以及工具的调用）
+   4. Tool（负责管理工具的定义，以及工具的调用）
+   5. ToolDefinition（负责管理工具的定义，以及工具的调用）
+      1. ToolParameterProperty（负责管理工具的参数属性）
 4. Transport
-    1. StdioTransport（需要通过子进程来创建）
-    2. StreamableHTTPTransport
-    3. WebSocketTransport（mcp 的 python 代码中是有这个的）
+   1. StdioTransport（需要通过子进程来创建）
+   2. StreamableHTTPTransport
+   3. WebSocketTransport（mcp 的 python 代码中是有这个的）
 5. DTO（我们目前只实现最基础的工具调用，其他不用管）
-    1. JSONRPCRequest
-        1. InitializeJSONRPCRequest
-        2. ListToolsJSONRPCRequest
-        3. CallToolJSONRPCRequest
-    2. JSONRPCResult
-        1. InitializeJSONRPCResult
-        2. ListToolsJSONRPCResult
-        3. CallToolJSONRPCResult
+   1. JSONRPCRequest
+      1. InitializeJSONRPCRequest
+      2. ListToolsJSONRPCRequest
+      3. CallToolJSONRPCRequest
+   2. JSONRPCResult
+      1. InitializeJSONRPCResult
+      2. ListToolsJSONRPCResult
+      3. CallToolJSONRPCResult
 6. Connection
-    1. 负责处理 MCP Server 和 Client 的连接，握手，以及断开连接
+   1. 负责处理 MCP Server 和 Client 的连接，握手，以及断开连接
 7. LLM
-    1. SystemPrompts（系统提示词，这里就不学 Cline 的做法了，直接将 MCP Tool 转成 Function Calling 的方式来实现比较简单，就不再构建一层抽象了）
+   1. SystemPrompts（系统提示词，这里就不学 Cline 的做法了，直接将 MCP Tool 转成 Function Calling 的方式来实现比较简单，就不再构建一层抽象了）
 8. 组合（Host + Client + Server + LLM）
 9. MCPServerConfig
-    1. 负责将 MCP 配置，例如 mcp.json 或者叫 .mcp.json 的文件加载进来。必须有个 load 方法，将这个转成 Host 能识别的对象内容
-    2. 每个 MCP Server 的定义
-        1. mcpServerName（必须唯一，这样我回调的时候，知道应该调用哪个方法）
-            1. command
-            2. args
-            3. env
-            4. type (stdio, streamable-http, websocket)
-        2. mcpServerTitle（这个在初始握手协商的时候，Server 会返回给 Client）
-        3. status（这个表示 MCP 是否启动，后续可用于编写 GUI 程序的时候，进行开关，可以是 RUNNING，STOPPING，STOPPED）
+   1. 负责将 MCP 配置，例如 mcp.json 或者叫 .mcp.json 的文件加载进来。必须有个 load 方法，将这个转成 Host 能识别的对象内容
+   2. 每个 MCP Server 的定义
+      1. mcpServerName（必须唯一，这样我回调的时候，知道应该调用哪个方法）
+         1. command
+         2. args
+         3. env
+         4. type (stdio, streamable-http, websocket)
+      2. mcpServerTitle（这个在初始握手协商的时候，Server 会返回给 Client）
+      3. status（这个表示 MCP 是否启动，后续可用于编写 GUI 程序的时候，进行开关，可以是 RUNNING，STOPPING，STOPPED）
 
 ### DTO
 
@@ -1029,7 +1041,9 @@ uv venv --python 3.13.2
 uv add "pydantic==2.11.7"
 uv add "requests==2.32.5"
 ```
+
 ## DTO
+
 这里根据 MCP 协议定义了以下内容，JSONRPC 请求响应类，以及将它们转成 JSON 字符串工具方法，initiallize 方法请求和响应类，还有最重要的 tools/list 和 tools/call 的请求和响应。它们的结构按照 MCP 官方文档定义，具体流程如下图所示。
 
 首先是握手，协商协议版本，以及客户端和服务器的信息。然后是工具列表，获取工具列表，以及工具的参数。最后是调用工具，执行工具，获取工具的返回结果。
@@ -1052,6 +1066,7 @@ sequenceDiagram
     Client-->>Server: Disconnect
     Note over Client, Server: Connection closed
 ```
+
 列出所有工具信息，工具调用。
 
 注：MCP 协议说明了，通知类的消息，可以通知工具变更，prompts 变更，资源变更，等等。我这里没实现，只做最最最简单版本的 MCP 程序。
@@ -1075,6 +1090,7 @@ sequenceDiagram
     Client->>Server: tools/list
     Server-->>Client: Updated tools
 ```
+
 创建 dto.py 文件
 
 ```python
@@ -1388,6 +1404,7 @@ class CallToolJSONRPCResult(JSONRPCResult):
 ```
 
 ## MCP Server
+
 创建 mcp_server.py 文件，这里又做了分层，其实就是整洁架构，代码中每层做不同的事情。
 
 - JSONRPCServer 负责处理所有和外部进程的交互，负责分发 JSONRPC 请求。
@@ -2003,7 +2020,9 @@ if __name__ == "__main__":
         sys.exit(0)
 
 ```
+
 ### 模拟调用
+
 至此，我们就写出了一个最简单版本的 MCP Server，接下来我们简单实验一下。
 
 启动 MCP Server stdio
@@ -2011,6 +2030,7 @@ if __name__ == "__main__":
 ```shell
 uv run mcp_server.py
 ```
+
 ### initialize
 
 初始化握手协商阶段
@@ -2026,6 +2046,7 @@ uv run mcp_server.py
 {"id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"logging":{"listChanged":false},"prompts":{"listChanged":false},"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":true},"completions":{"listChanged":false},"experimental":{"listChanged":false}},"serverInfo":{"name":"Fake-Weather-Server","version":"0.0.1-SNAPSHOT","title":"Fake-Weather-Server MCP Server"},"instructions":"Fake-Weather MCP Server"},"jsonrpc":"2.0"}
 
 ```
+
 ### tools/list
 
 列出所有可用的工具，记住，这里不能有任何的换行。
@@ -2041,6 +2062,7 @@ uv run mcp_server.py
 ```
 
 ### tools/call
+
 ```json
 {"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_weather","arguments":{"location":"Beijing"}}}
 ```
@@ -2075,9 +2097,11 @@ uv run /[你自己的文件路径]/mcp-mini/mcp_server.py --arg1 "Beijing" --arg
   }
 }
 ```
+
 ## MCP Client
 
 接下来，我们要实现一下简单的 Agent 用于适配各个大模型。现在所谓的 Agent，或者 Claude Code，它们的本质，都是输入文本，然后让大模型输出 XML 或者 JSON，优先推荐 XML。
+
 1. 相比于 JSON 更适合流式输出；
 2. 训练的时候就有特殊的 `<eos></eos>` 表示开始和结束。
 3. Cline，Cluade Code 主流的 Agent 应用，都是用的这个。
@@ -2089,6 +2113,7 @@ uv run /[你自己的文件路径]/mcp-mini/mcp_server.py --arg1 "Beijing" --arg
 ```shell
 uv add httpx python-dotenv
 ```
+
 ### 阶段1：流式输出
 
 这一步，我们开始和 LLM 开始交互，在开始之前，你可以随便找个大模型提供商，不一定是 DeepSeek，其他的 Kimi、Claude、ChatGPT 都可以，或者整合商：硅基流动、OpenRouter。哪个免费，用哪个，现在只是入门。
@@ -2096,6 +2121,7 @@ uv add httpx python-dotenv
 下面这个代码，就是一个最最最简单的大模型调用的代码，需要注意的是，大模型并没有记住你的话，所以我们需要一个介质保存你的对话记录，这里我选择使用数组/列表保存对话记录。当然，这一步并没有上多轮对话。可以直接执行 `uv run mcp_client.py` 可以感受下流式输出。
 
 mcp_client.py
+
 ```python
 import httpx
 import os
@@ -2191,6 +2217,7 @@ if __name__ == "__main__":
 ```
 
 输出
+
 ```plaintext
 目前我无法直接获取实时天气信息。建议您：
 
@@ -2200,11 +2227,13 @@ if __name__ == "__main__":
 
 如果您需要了解未来几天的天气趋势或穿衣建议，我很乐意为您提供参考意见！😊
 ```
+
 ### 阶段2：变更提示词，结构化输出
 
 在阶段 1 的代码之上，我们只更改 system_prompt 保证结构化输出，以适配各种不同的大模型。
 
 mcp_client1.py
+
 ```python
 import httpx
 import os
@@ -2487,6 +2516,7 @@ if __name__ == "__main__":
 </arguments>
 </use_mcp_tool>
 ```
+
 ### 阶段3：调用 Tool 的能力
 
 这一次，给它加上调用工具，多轮对话的能力，重要的是，给它加上 `final_answer` 这个 tool，来表示对话已经结束。
@@ -2499,6 +2529,7 @@ uv run mcp_client2.py
 ```
 
  mcp_client2.py
+
 ```python
 import httpx
 import os
@@ -2974,6 +3005,7 @@ if __name__ == "__main__":
 ### 阶段4：多轮对话
 
 整合 MCP，并且进行多轮对话，调用相应的 MCP 工具。把之前写好的 mcp_server.py 进行整合。
+
 ```json
 {
     "mcpServers": {
@@ -3737,6 +3769,7 @@ if __name__ == "__main__":
 添加 Chrome 的 MCP 工具
 
 mcp.json
+
 ```json
 {
     "mcpServers": {
@@ -3758,6 +3791,7 @@ mcp.json
 ```
 
 mcp_client4.py
+
 ```python
 import httpx
 import os
