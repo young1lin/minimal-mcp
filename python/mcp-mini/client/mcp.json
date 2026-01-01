@@ -12,6 +12,24 @@
           "type": "stdio",
           "command": "npx",
           "args": ["chrome-devtools-mcp@latest"]
+        },
+        "fetch": {
+          "type": "stdio",
+          "command": "uvx",
+          "args": ["mcp-server-fetch"]
+        },
+        "filesystem": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\PythonProject\\minimal-mcp"]
+        },
+        "brave-search": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+          "env": {
+            "BRAVE_API_KEY": "your-brave-api-key-here"
+          }
         }
     }
   }
