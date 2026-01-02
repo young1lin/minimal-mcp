@@ -21,7 +21,7 @@
         "filesystem": {
           "type": "stdio",
           "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\PythonProject\\minimal-mcp"]
+          "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\"]
         },
         "brave-search": {
           "type": "stdio",
