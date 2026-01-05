@@ -13,11 +13,6 @@
           "command": "npx",
           "args": ["chrome-devtools-mcp@latest"]
         },
-        "filesystem": {
-          "type": "stdio",
-          "command": "npx",
-          "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\"]
-        },
         "brave-search": {
           "type": "stdio",
           "command": "npx",

@@ -33,7 +33,7 @@ if not api_key:
 
 LLM_URL = "https://api.deepseek.com/chat/completions"
 LLM_MODEL = "deepseek-reasoner"
-MAX_ROUNDS = 10
+MAX_ROUNDS = 200
 
 
 # 删除重复的函数定义，使用下面带 server_name 参数的版本
@@ -626,7 +626,7 @@ class FunctionCallingChatBot:
         self.messages.append({"role": "user", "content": message})
         self._limit_messages()
 
-        max_iterations = 10
+        max_iterations = 200
         iteration = 0
 
         while iteration < max_iterations:

@@ -79,15 +79,17 @@ class SimpleTool:
 
 
 def tool(
-    description: str, required_arguments: list[str] | None = None
+    name: str | None = None,
+    description: str | None = None,
+    required_arguments: list[str] | None = None,
 ) -> Callable[[callable], SimpleTool]:
     if required_arguments is None:
         required_arguments = []
 
     def decorator(func):
         return SimpleTool(
-            name=func.__name__,
-            description=description,
+            name=name or func.__name__,
+            description=description or inspect.getdoc(func) or "",
             arguments=func.__annotations__,
             required_arguments=required_arguments,
             func=func,
