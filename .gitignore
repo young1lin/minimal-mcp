@@ -50,4 +50,9 @@ node_modules
 package-lock.json
 
 # github
-.github
+
+
+# Claude Code Local
+**/.claude/settings.local.json
+# 本地 Claude Code 项目 Memory，非团队 Memory，不用提交到远端
+**/.claude/CLAUDE.md
