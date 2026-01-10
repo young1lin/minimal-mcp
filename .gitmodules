@@ -1,0 +1,3 @@
+[submodule "go/claude-token-monitor"]
+	path = go/claude-token-monitor
+	url = https://github.com/young1lin/claude-token-monitor.git
