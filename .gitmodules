@@ -1,3 +1,6 @@
 [submodule "go/claude-token-monitor"]
 	path = go/claude-token-monitor
 	url = https://github.com/young1lin/claude-token-monitor.git
+[submodule "go/claude-ride-with-whip"]
+	path = go/claude-ride-with-whip
+	url = https://github.com/young1lin/claude-ride-with-whip.git
