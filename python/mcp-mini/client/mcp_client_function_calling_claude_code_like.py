@@ -482,6 +482,12 @@ class FunctionCallingChatBot:
 
     def _build_system_prompt(self) -> str:
         """构建动态 system prompt，包含工作目录、Git 分支和 Memory.md 内容"""
+        import platform
+
+        # 添加操作系统信息
+        os_name = platform.system()  # Windows, Linux, Darwin
+        os_info = f"\n\n## 当前操作系统\n{os_name} ({sys.platform})"
+
         # 添加工作目录信息
         work_dir_info = f"\n\n## 当前工作目录\n{self.work_dir}"
 
@@ -498,7 +504,7 @@ class FunctionCallingChatBot:
         else:
             memory_info = ""
 
-        base_prompt = f"""你是一个优秀的 AI 助手，可以使用多种工具来帮助用户完成任务。{work_dir_info}{git_info}{memory_info}"""
+        base_prompt = f"""你是一个优秀的 AI 助手，可以使用多种工具来帮助用户完成任务。{os_info}{work_dir_info}{git_info}{memory_info}"""
 
         return base_prompt
 

@@ -413,13 +413,52 @@ async def run_shell(command: str, timeout: int = 30) -> str:
     Returns:
         命令的标准输出
     """
+    import sys
+    import asyncio
+    import os
+
     try:
-        result = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=timeout,
+        # 准备环境变量，强制子进程使用 UTF-8 编码
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        env['PYTHONUTF8'] = '1'
+
+        # 使用异步 subprocess 避免阻塞事件循环
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
-        output = result.stdout or result.stderr
-        return output if output else "命令执行成功（无输出）"
-    except subprocess.TimeoutExpired:
+
+        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+            process.communicate(),
+            timeout=timeout
+        )
+
+        # 优先尝试 UTF-8，失败则尝试系统默认编码
+        def decode_output(data: bytes) -> str:
+            if not data:
+                return ""
+            try:
+                return data.decode('utf-8')
+            except UnicodeDecodeError:
+                # Windows 中文系统 fallback 到 GBK
+                try:
+                    return data.decode('gbk' if sys.platform == 'win32' else 'locale')
+                except UnicodeDecodeError:
+                    return data.decode('utf-8', errors='replace')
+
+        stdout_str = decode_output(stdout_bytes)
+        stderr_str = decode_output(stderr_bytes)
+
+        output = stdout_str or stderr_str
+        return output.strip() if output.strip() else f"命令执行成功（退出码: {process.returncode}）"
+
+    except asyncio.TimeoutError:
+        if 'process' in dir():
+            process.kill()
+            await process.wait()
         return f"命令执行超时（超过{timeout}秒）"
     except Exception as e:
         return f"命令执行失败: {str(e)}"
