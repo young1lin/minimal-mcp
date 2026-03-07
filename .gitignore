@@ -8,8 +8,10 @@ build/
 dist/
 wheels/
 *.egg-info
-.venv
-## python uv
+.venv/
+**/.venv/
+# python uv
+uv.lock
 
 
 # Java

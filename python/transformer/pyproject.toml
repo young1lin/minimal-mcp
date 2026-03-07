@@ -1,0 +1,18 @@
+[project]
+name = "transformer-demo"
+version = "0.1.0"
+description = "Tokenizer 和 Attention 机制的动手复现"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.8.0",
+    "tiktoken>=0.9.0",
+    "numpy",
+]
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128" }]
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
